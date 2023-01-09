@@ -1,0 +1,7 @@
+Package: gBenchmark
+Version: 0.1
+Date: 2023-01-09
+Title: gBenchmark
+Description: benchmarking utils for gnome graphs
+Author: Zi-Ning Choo <zining01@gmail.com>
+Maintainer: Zi-Ning Choo <zining01@gmail.com>
