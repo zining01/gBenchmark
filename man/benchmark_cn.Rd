@@ -13,7 +13,9 @@ benchmark_cn(
   cnloh = FALSE,
   tile.width = 10000,
   min.width = 0,
-  verbose
+  genome = "hg19",
+  std.only = TRUE,
+  verbose = FALSE
 )
 }
 \arguments{
@@ -33,7 +35,14 @@ benchmark_cn(
 
 \item{min.width}{(numeric) minimum width segment to retain (default 0, retains all segments)}
 
+\item{genome}{(character) one of hg19 or h38, default hg19}
+
+\item{std.only}{(character) only consider standard chromosomes? e.g. 1-22, X, Y. default TRUE}
+
 \item{verbose}{(logical) default FALSE}
+}
+\value{
+data.table with benchmarking results
 }
 \description{
 compare copy number (CN) predictions
@@ -46,4 +55,6 @@ inputs can be one of the follow objects, or a file containing one of the followi
 - data.table coercible to GRanges
 - GRanges
 - gGnome gGraph
+
+note that the comparison for cnloh is non-symmetric and y is assumed to be the ground truth
 }

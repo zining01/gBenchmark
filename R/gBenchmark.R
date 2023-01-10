@@ -3,7 +3,7 @@
 #' @import rtracklayer
 #'
 #' @importFrom gGnome gG
-#' @importFrom GenomicRanges GRanges, mcols
+#' @importFrom GenomicRanges GRanges mcols
 #' @importFrom IRanges IRanges
 
 #' @name benchmark_cn
@@ -21,6 +21,8 @@
 #' - GRanges
 #' - gGnome gGraph
 #'
+#' note that the comparison for cnloh is non-symmetric and y is assumed to be the ground truth
+#' 
 #' @param x character vector containing a file path, data.table, GRanges, or gGraph
 #' @param y character vector containing a file path, data.table, GRanges, or gGraph
 #' @param x.field (character) field(s) in x containing CN data (default "cn")
@@ -29,7 +31,13 @@
 #' @param cnloh (logical) cnloh analysis? default FALSE
 #' @param tile.width (numeric) tile width for averaging copy number estimates (default 10 Kbp)
 #' @param min.width (numeric) minimum width segment to retain (default 0, retains all segments)
+#' @param genome (character) one of hg19 or h38, default hg19
+#' @param std.only (character) only consider standard chromosomes? e.g. 1-22, X, Y. default TRUE
 #' @param verbose (logical) default FALSE
+#'
+#' @return data.table with benchmarking results
+#'
+#' @export
 benchmark_cn = function(x, y,
                         x.field = "cn",
                         y.field = "cn",
@@ -37,10 +45,107 @@ benchmark_cn = function(x, y,
                         cnloh = FALSE,
                         tile.width = 1e4,
                         min.width = 0,
-                        verbose)
+                        genome = "hg19",
+                        std.only = TRUE,
+                        verbose = FALSE)
 {
+    ## get chromosome sizes
+    if (genome != "hg19" & genome != "hg38")
+    {
+        stop("genome must be one of hg19 or hg38")
+    }
+    chrom.sizes.dt = data.table::fread(file = system.file("extdata", paste0(genome, ".chrom.sizes"),
+                                                          package = "gBenchmark"),
+                                       header = FALSE,
+                                       col.names = c("seqnames", "size"))
+    if (std.only)
+    {
+        chrom.sizes.dt = chrom.sizes.dt[grepl("^(chr)*[0-9XY]+$", seqnames),]
+    }
+    chrom.sizes = chrom.sizes.dt[, size]
+    names(chrom.sizes) = chrom.sizes.dt[, seqnames]
+
+    ## tile eligible regions
+    tiles.gr = gUtils::gr.tile(gUtils::si2gr(si = chrom.sizes), width = tile.width)
+
+    ## grab input data
+    gr1 = read_segs(x, field = x.field, allelic = allelic, cnloh = cnloh)
+    gr2 = read_segs(y, field = y.field, allelic = allelic, cnloh = cnloh)
+
+    ## overlap with tiles
+    if (cnloh | (!allelic))
+    {
+        GenomicRanges::mcols(tiles.gr)[, "score1"] = gUtils::gr.val(query = tiles.gr,
+                                                                    target = gr1,
+                                                                    val = "score",
+                                                                    na.rm = TRUE)$score
+        GenomicRanges::mcols(tiles.gr)[, "score2"] = gUtils::gr.val(query = tiles.gr,
+                                                                    target = gr2,
+                                                                    val = "score",
+                                                                    na.rm = TRUE)$score
+    }
+    else
+    {
+        tiles2.gr = tiles.gr[, c()]
+        GenomicRanges::mcols(tiles.gr)[, "score1"] = gUtils::gr.val(query = tiles.gr,
+                                                                    target = gr1 %Q% (allele == "major"),
+                                                                    val = "score",
+                                                                    na.rm = TRUE)$score
+        GenomicRanges::mcols(tiles.gr)[, "score2"] = gUtils::gr.val(query = tiles.gr,
+                                                                    target = gr2 %Q% (allele == "major"),
+                                                                    val = "score",
+                                                                    na.rm = TRUE)$score
+        GenomicRanges::mcols(tiles2.gr)[, "score1"] = gUtils::gr.val(query = tiles2.gr,
+                                                                     target = gr1 %Q% (allele == "minor"),
+                                                                     val = "score",
+                                                                     na.rm = TRUE)$score
+        GenomicRanges::mcols(tiles2.gr)[, "score2"] = gUtils::gr.val(query = tiles2.gr,
+                                                                     target = gr2 %Q% (allele == "minor"),
+                                                                     val = "score",
+                                                                     na.rm = TRUE)$score
+        GenomicRanges::mcols(tiles.gr)[, "allele"] = "major"
+        GenomicRanges::mcols(tiles2.gr)[, "allele"] = "minor"
+        tiles.gr = c(tiles.gr, tiles2.gr)
+    }
+
+    ## rmse/pearson/spearman correlation if integer CN
+    ## precision/recall/F1 if cnloh
+    if (!cnloh)
+    {
+        res = data.table(pearson.cn = stats::cor(x = GenomicRanges::mcols(tiles.gr)[, "score1"],
+                                                 y = GenomicRanges::mcols(tiles.gr)[, "score2"],
+                                                 use = "na.or.complete",
+                                                 method = "pearson"),
+                         spearman.cn = stats::cor(x = GenomicRanges::mcols(tiles.gr)[, "score1"],
+                                                  y = GenomicRanges::mcols(tiles.gr)[, "score2"],
+                                                  use = "na.or.complete",
+                                                  method = "spearman"),
+                         rmse = sqrt(mean((GenomicRanges::mcols(tiles.gr)[, "score1"] -
+                                           GenomicRanges::mcols(tiles.gr)[, "score2"])^2,
+                                          na.rm = TRUE)))
+    }
+    else
+    {
+        tp = sum(GenomicRanges::mcols(tiles.gr)[, "score1"] > 0 &
+                 GenomicRanges::mcols(tiles.gr)[, "score2"] > 0,
+                 na.rm = TRUE)
+        fn = sum(GenomicRanges::mcols(tiles.gr)[, "score1"] == 0 &
+                 GenomicRanges::mcols(tiles.gr)[, "score2"] > 0,
+                 na.rm = TRUE)
+        fp = sum(GenomicRanges::mcols(tiles.gr)[, "score1"] > 0 &
+                 GenomicRanges::mcols(tiles.gr)[, "score2"] == 0,
+                 na.rm = TRUE)
+        tn = sum(GenomicRanges::mcols(tiles.gr)[, "score1"] == 0 &
+                 GenomicRanges::mcols(tiles.gr)[, "score2"] == 0,
+                 na.rm = TRUE)
+        res = data.table(precision.cnloh = ifelse(tp > 0, tp / (tp + fp), 0),
+                         recall.cnloh = ifelse(tp > 0, tp / (tp + fn), 0))
+        res[, f1.cnloh := ifelse(precision.cnloh > 0 & recall.cnloh > 0,
+                                 2 * precision.cnloh * recall.cnloh / (precision.cnloh + recall.cnloh),
+                                 0)]
+    }
     
-    return()
+    return(res)
 }
 
 #' @name read_segs
@@ -93,7 +198,7 @@ read_segs = function(x,
 
     if (inherits(x, "gGraph"))
     {
-        x = x$nodes$gr
+        x = gUtils::gr.stripstrand(x$nodes$gr)
     }
 
     if (inherits(x, "data.table"))
@@ -169,11 +274,13 @@ read_segs = function(x,
                                                             GenomicRanges::mcols(x)[, field[2]]) == 2 &
                     pmin(GenomicRanges::mcols(x)[, field[1]],
                          GenomicRanges::mcols(x)[, field[2]]) == 0
+                GenomicRanges::mcols(out)[, "score"] = as.numeric(GenomicRanges::mcols(out)[, "score"])
             }
         }
         else
         {
-            out = x[, field]
+            out = x[, c()]
+            GenomicRanges::mcols(out)[, "score"] = GenomicRanges::mcols(x)[, field]
         }
     } else
     {
