@@ -21,7 +21,28 @@
 #' - GRanges
 #' - gGnome gGraph
 #'
-#' note that the comparison for cnloh is non-symmetric and y is assumed to be the ground truth
+#' the "vanilla" analysis is comparison to total copy number and will return a data.table with Pearson correlation, Spearman correlation, and root mean square error (RMSE) computed over all genomic tiles
+#'
+#' one variation of this analysis is comparison of major and minor allelic copy number. In this case, the input for x.field and y.field is expected to be a length two character vector, where the first element is the major allele CN field and the second element is the minor allele CN field. this will be run if allelic = TRUE.
+#'
+#' another variation is comparison of copy-neutral LOH loci. In this case, the input for x.field and y.field is also a length two character vector (same as described above). this will be run if cnloh = TRUE. However, the output will be precision, recall, and F1 score of genomic tiles with cnLOH. Note that this comparison is non-symmetric and y is assumed to be the ground truth.
+#' 
+#' "unmappable" genomic tiles may also be masked by supplying a GRanges file path for the argument mask. coverage masks for hg19 and hg38 are included in extdata.
+#'
+#' @examples
+#' ## compare the copy number information stored in a GRanges (x) with a data.table (y)
+#' res = gBenchmark::benchmark_cn(x = system.file("extdata", "gr.rds", package = "gBenchmark"),
+#'                                y = system.file("extdata", "dt.txt", package = "gBenchmark"),
+#'                                x.field = "cn",
+#'                                y.field = "cn",
+#'                                tile.width = 1e3)
+#' 
+#' ## compare the copy number information stored in a gGraph (x) to a GRanges (y)
+#' res = gBenchmark::benchmark_cn(x = system.file("extdata", "gg.rds", package = "gBenchmark"),
+#'                                y = system.file("extdata", "gr.txt", package = "gBenchmark"),
+#'                                x.field = "cn",
+#'                                y.field = "cn",
+#'                                tile.width = 1e3)
 #' 
 #' @param x character vector containing a file path, data.table, GRanges, or gGraph
 #' @param y character vector containing a file path, data.table, GRanges, or gGraph
@@ -153,6 +174,27 @@ benchmark_cn = function(x, y,
 #' @details
 #' given two sets of breakend calls x and y, with y being the 'ground truth' or 'gold standard'
 #' calculate precision, recall, and f1 score of x
+#'
+#' x and y can be (signed) GRangesList, GRanges, gGraph (from which junctions/loose ends are extracted), or Junctions (or a file path containing any of these objects). in each of these cases, x.field and y.field do not have to be supplied.
+#'
+#' in addition, x and y can be a segmentation output (such as GRanges) with some field containing copy number (supplied as x.field or y.field). using the copy number change points, a set of signed breakends are inferred.
+#'
+#' if ignore.strand == TRUE, the orientation of breakends is ignored and two breakends in potentially opposite directions may be considered overlapping.
+#'
+#' @examples
+#' ## compare a gGraph (x) with a set of junction calls provided as vcf (y)
+#' res = gBenchmark:::benchmark_bnd(x = system.file("extdata", "gg.rds", package = "gBenchmark"),
+#'                                 y = system.file("extdata", "svaba.subset.vcf", package = "gBenchmark"))
+#' 
+#' ## compare a gGraph (x) with a set of junction calls (provided as grl) (y)
+#' res = gBenchmark:::benchmark_bnd(x = system.file("extdata", "gg.rds", package = "gBenchmark"),
+#'                                 y = system.file("extdata", "grl.rds", package = "gBenchmark"))
+#' 
+#' ## compare a GRanges (x) with a set of junction calls (provided as grl) (y) and ignore the strand
+#' res = gBenchmark:::benchmark_bnd(x = system.file("extdata", "gr.rds", package = "gBenchmark"),
+#'                                 y = system.file("extdata", "grl.rds", package = "gBenchmark"),
+#'                                 ignore.strand = TRUE)
+#' 
 #'
 #' @param x character vector containing a file path, GRangesList, gGraph, GRanges, or Junction object (sv calls)
 #' @param y character vector containing a file path, GRangesList, gGraph, GRanges, or Junction object (ground truth)
