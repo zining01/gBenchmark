@@ -25,6 +25,11 @@ test_that(desc = "read_segs total CN",
                                           field = "cn")
               expect_true(length(gr) == 3)
 
+              ## segments can be read from .rds file containing gGraph
+              gr = gBenchmark:::read_segs(x = system.file("extdata", "gg.rds", package = "gBenchmark"),
+                                          field = "cn")
+              expect_true(length(gr) == 37)
+
               ## segments can be created from GRanges
               og.gr = readRDS(system.file("extdata", "gr.rds", package = "gBenchmark"))
               gr = gBenchmark:::read_segs(og.gr, field = "cn")
@@ -33,6 +38,10 @@ test_that(desc = "read_segs total CN",
               og.dt = data.table::as.data.table(og.gr)
               gr = gBenchmark:::read_segs(og.dt, field = "cn")
               expect_true(length(gr) == 3)
+
+              og.gg = readRDS(system.file("extdata", "gg.rds", package = "gBenchmark"))
+              gr = gBenchmark:::read_segs(og.gg, field = "cn")
+              expect_true(length(gr) == 37)
           })
               
 test_that(desc = "read_segs allelic CN (without cnloh)",
@@ -54,6 +63,11 @@ test_that(desc = "read_segs allelic CN (without cnloh)",
                                      allelic = TRUE, cnloh = FALSE)
               expect_true(length(gr) == 6)
 
+              gr = gBenchmark:::read_segs(x = system.file("extdata", "gg.rds", package = "gBenchmark"),
+                                          field = c("cn.high", "cn.low"),
+                                          allelic = TRUE, cnloh = FALSE)
+              expect_true(length(gr) == 74)
+
               og.agr = readRDS(system.file("extdata", "agr.rds", package = "gBenchmark"))
               gr = gBenchmark:::read_segs(x = og.agr,
                                           field = c("majorCN", "minorCN"),
@@ -67,6 +81,13 @@ test_that(desc = "read_segs allelic CN (without cnloh)",
                                           allelic = TRUE,
                                           cnloh = FALSE)
               expect_true(length(gr) == 6)
+
+              og.gg = readRDS(system.file("extdata", "gg.rds", package = "gBenchmark"))
+              gr = gBenchmark:::read_segs(x = og.gg,
+                                          field = c("cn.high", "cn.low"),
+                                          allelic = TRUE,
+                                          cnloh = FALSE)
+              gr = expect_true(length(gr) == 74)
           })
 
 test_that(desc = "read_segs cnloh",
@@ -88,6 +109,11 @@ test_that(desc = "read_segs cnloh",
                                      allelic = TRUE, cnloh = TRUE)
               expect_true(length(gr) == 3)
 
+              gr = gBenchmark:::read_segs(x = system.file("extdata", "gg.rds", package = "gBenchmark"),
+                                          field = c("cn.high", "cn.low"),
+                                          allelic = TRUE, cnloh = TRUE)
+              expect_true(length(gr) == 37)
+
               og.agr = readRDS(system.file("extdata", "agr.rds", package = "gBenchmark"))
               gr = gBenchmark:::read_segs(x = og.agr,
                                           field = c("majorCN", "minorCN"),
@@ -101,5 +127,12 @@ test_that(desc = "read_segs cnloh",
                                           allelic = TRUE,
                                           cnloh = TRUE)
               expect_true(length(gr) == 3)
+
+              og.gg = readRDS(system.file("extdata", "gg.rds", package = "gBenchmark"))
+              gr = gBenchmark:::read_segs(x = og.gg,
+                                          field = c("cn.high", "cn.low"),
+                                          allelic = TRUE,
+                                          cnloh = TRUE)
+              expect_true(length(gr) == 37)
           })
 
