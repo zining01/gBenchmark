@@ -6,6 +6,7 @@ Description: benchmarking utils for gnome graphs
 Author: Zi-Ning Choo <zining01@gmail.com>
 Maintainer: Zi-Ning Choo <zining01@gmail.com>
 RoxygenNote: 7.2.1.9000
+License: MIT + file LICENSE
 Encoding: UTF-8
 biocViews:
   bioc::3.10/GenomicRanges,
