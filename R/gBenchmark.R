@@ -332,8 +332,8 @@ read_segs = function(x,
         setnames(x, old = c(sn, st, ed), new = c("seqnames", "start", "end"))
         if (xy.sub)
         {
-            dt[seqnames == "23", seqnames := "X"]
-            dt[seqnames == "24", seqnames := "Y"]
+            x[seqnames == "23", seqnames := "X"]
+            x[seqnames == "24", seqnames := "Y"]
         }
 
         if (allelic | cnloh)
