@@ -21,4 +21,6 @@ Depends:
   GenomicRanges,
   IRanges
 Imports:
-  rtracklayer
+  rtracklayer,
+  gUtils,
+  gGnome
