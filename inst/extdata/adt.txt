@@ -1,0 +1,4 @@
+seqnames,start,end,width,strand,majorCN,minorCN
+1,1,2000,2000,*,3,1
+1,2001,5000,3000,*,4,2
+1,5001,10000,5000,*,2,0
