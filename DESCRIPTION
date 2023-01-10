@@ -5,3 +5,19 @@ Title: gBenchmark
 Description: benchmarking utils for gnome graphs
 Author: Zi-Ning Choo <zining01@gmail.com>
 Maintainer: Zi-Ning Choo <zining01@gmail.com>
+RoxygenNote: 7.2.1.9000
+Encoding: UTF-8
+biocViews:
+  bioc::3.10/GenomicRanges,
+  bioc::3.10/rtracklayer,
+  bioc::3.10/IRanges
+Remotes:
+  github::mskilab/gUtils,
+  github::mskilab/gGnome
+Depends:
+  R (>= 4.0.0),
+  data.table (>= 1.14),
+  GenomicRanges,
+  IRanges
+Imports:
+  rtracklayer
