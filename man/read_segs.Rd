@@ -4,7 +4,14 @@
 \alias{read_segs}
 \title{read_segs}
 \usage{
-read_segs(x, field = "cn", allelic = FALSE, cnloh = FALSE, xy.sub = TRUE)
+read_segs(
+  x,
+  field = "cn",
+  allelic = FALSE,
+  cnloh = FALSE,
+  nofield = FALSE,
+  xy.sub = TRUE
+)
 }
 \arguments{
 \item{x}{character vector containing a file path, data.table, GRanges, bigWig, or gGraph}
@@ -14,6 +21,8 @@ read_segs(x, field = "cn", allelic = FALSE, cnloh = FALSE, xy.sub = TRUE)
 \item{allelic}{(logical) allelic analysis? default FALSE}
 
 \item{cnloh}{(logical) CNLOH analysis? default FALSE}
+
+\item{nofield}{(logical) ignore field? (e.g. we just want segmentation) default FALSE}
 
 \item{xy.sub}{(logical) if '23' and '24' are provided as seqnames, replace them with X and Y? default TRUE}
 }

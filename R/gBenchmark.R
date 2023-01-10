@@ -2,7 +2,7 @@
 #' @import gUtils
 #' @import rtracklayer
 #'
-#' @importFrom gGnome gG
+#' @importFrom gGnome gG jJ
 #' @importFrom GenomicRanges GRanges mcols
 #' @importFrom IRanges IRanges
 
@@ -148,6 +148,33 @@ benchmark_cn = function(x, y,
     return(res)
 }
 
+#' @name benchmark_bnd
+#' @title benchmark_bnd
+#'
+#' @description
+#' compare two sets of breakend calls
+#'
+#' @details
+#' given two sets of breakend calls x and y, with y being the 'ground truth' or 'gold standard'
+#' calculate precision, recall, and f1 score of x
+#'
+#' @param x character vector containing a file path, GRangesList, gGraph, GRanges, or Junction object (sv calls)
+#' @param y character vector containing a file path, GRangesList, gGraph, GRanges, or Junction object (ground truth)
+#' @param ignore.strand (logical) perform unsigned comparison of breakends? default FALSE
+#' @param max.dist (numeric) maximum distance between breakends to be considered a match, default 1 Kbp
+#' @param genome (character) one of hg19, hg3. default hg19
+#' @param std.only (logical) standard chromosomes only? default TRUE
+#' @param verbose (logical) message stuff? default FALSE
+benchmark_bnd = function(x, y,
+                         ignore.strand = FALSE,
+                         max.dist = 1e3,
+                         genome = "hg19",
+                         std.only = TRUE,
+                         verbose = FALSE)
+{
+    return()
+}
+
 #' @name read_segs
 #' @title read_segs
 #'
@@ -158,6 +185,7 @@ benchmark_cn = function(x, y,
 #' @param field field(s) in x containing copy number data (default 'cn')
 #' @param allelic (logical) allelic analysis? default FALSE
 #' @param cnloh (logical) CNLOH analysis? default FALSE
+#' @param nofield (logical) ignore field? (e.g. we just want segmentation) default FALSE
 #' @param xy.sub (logical) if '23' and '24' are provided as seqnames, replace them with X and Y? default TRUE
 #'
 #' @return GRanges with field "score"
@@ -167,6 +195,7 @@ read_segs = function(x,
                      field = "cn",
                      allelic = FALSE,
                      cnloh = FALSE,
+                     nofield = FALSE,
                      xy.sub = TRUE)
 {
     if (inherits(x, "character"))
@@ -199,11 +228,18 @@ read_segs = function(x,
     if (inherits(x, "gGraph"))
     {
         x = gUtils::gr.stripstrand(x$nodes$gr)
+
     }
 
     if (inherits(x, "data.table"))
     {
         x = copy(x)
+        if (!x[, .N]) { stop("empty table given as input!") }
+        if (nofield)
+        {
+            x[, score := NA]
+            field = "score"
+        }
         ## make sure field is in the column names
         if (!all(field %in% names(x))) { stop(field, " is not in column names!") }
         ## make sure column names conform to something that can be coerced to GRanges
@@ -255,6 +291,12 @@ read_segs = function(x,
         }
     } else if (inherits(x, "GRanges"))
     {
+        if (!length(x)) { stop("empty GRanges given as input!") }
+        if (nofield)
+        {
+            GenomicRanges::mcols(x)[, "score"] = NA
+            field = "score"
+        }
         if (!all(field %in% names(values(x)))) { stop(field, " contains invalid values!") }
         if (allelic | cnloh)
         {
@@ -288,6 +330,131 @@ read_segs = function(x,
     }
 
     ## at this point x should be a GRanges
+    return(out)
+}
+
+#' @name seg2bnd
+#' @title seg2bnd
+#'
+#' @description
+#' convert segments with 'score' field representing CN to breakends
+#'
+#' @param gr
+#'
+#' @return signed GRanges representing breakends
+seg2bnd = function(gr)
+{
+    dt = as.data.table(gr)[order(start),][order(seqnames),]
+    dt[, ":="(prev.seqnames = data.table::shift(seqnames, type = "lag"),
+              next.seqnames = data.table::shift(seqnames, type = "lead"),
+              prev.score = data.table::shift(score, type = "lag"),
+              next.score = data.table::shift(score, type = "lead"))]
+    cncp.dt = rbind(dt[(seqnames == prev.seqnames) & (score > prev.score),
+                       .(seqnames, start, end = start, strand = "+")],
+                    dt[(seqnames == next.seqnames) & (score > next.score),
+                       .(seqnames, start = end, end, strand = "-")])
+
+    cncp.gr = GRanges()
+    if (cncp.dt[, .N])
+    {
+        cncp.gr = GRanges(seqnames = cncp.dt[, seqnames],
+                          ranges = IRanges::IRanges(start = cncp.dt[, start],
+                                                    width = 1),
+                          strand = cncp.dt[, strand])
+    }
+    return(cncp.gr)
+}
+
+#' @name read_bnds
+#' @title read_bnds
+#'
+#' @description
+#' grab breakends from input file or object
+#'
+#' @param x character vector containing file path, or GRanges, gGraph, Junction
+#' @param field (character) copy number field, default NA
+#' @param ignore.strand (logical) return output with no strand information (default FALSE)
+#'
+#' @return GRanges (possibly unsigned) with breakend locations
+read_bnds = function(x, field = NA_character_, ignore.strand = FALSE)
+{
+    ## if field is supplied, assume that we have to read copy number
+    if (!is.na(field))
+    {
+        x = read_segs(x, field = field)
+        x = seg2bnd(x)
+    }
+    else if (inherits(x, "character"))
+    {
+        if (!check_file(x)) { stop("invalid file supplied: ", x) }
+        if (grepl(".rds$", x))
+        {
+            x = readRDS(x)
+        }
+        else if (grepl("(.vcf$)|(.vcf.gz$)|(.bedpe$)|(.bedpe.gz$)", x))
+        {
+            x = gGnome::jJ(rafile = x)
+        }
+        else if (grepl("(.txt$)|(.tsv$)|(.csv$)", x))
+        {
+            x = data.table::fread(file = x)
+        }
+        else
+        {
+            stop("invalid file type supplied: ", x)
+        }
+    }
+
+    ## check if x is the correct R object type...
+    if (inherits(x, "gGraph"))
+    {
+        out = GRanges(seqlengths = seqlengths(x$gr))
+        if (length(x$junctions) && length(x$junctions[type == "ALT"]))
+        {
+            out = stack(x$junctions[type == "ALT"]$grl)[, c()]
+        }
+        if (length(x$loose) && length(x$loose %Q% (!terminal)))
+        {
+            loose.gr = x$loose %Q% (!terminal)
+            out = c(out, loose.gr[, c()])
+        }
+    }
+    else if (inherits(x, "GRangesList"))
+    {
+        out = stack(x)[, c()]
+    }
+    else if (inherits(x, "Junction"))
+    {
+        out = stack(x$grl)[, c()]
+    }
+    else if (inherits(x, "data.table"))
+    {
+        if ("seqnames" %in% names(x) &&
+            "start" %in% names(x) &&
+            "end" %in% names(x) &&
+            "strand" %in% names(x))
+        {
+            x = copy(x)[start > 1,]
+            out = GRanges(seqnames = x[, seqnames],
+                          ranges = IRanges::IRanges(start = x[, start],
+                                                    end = x[, end]),
+                          strand = x[, strand])
+        }
+        else
+        {
+            stop("supplied data table contains invalid names")
+        }
+    }
+    else if (inherits(x, "GRanges"))
+    {
+        out = gUtils::gr.start(x[, c()] %Q% (start(x) > 1))
+    }
+    else
+    {
+        stop("file contains invalid object!")
+    }
+    
+    if (ignore.strand) { out = gUtils::gr.stripstrand(out) }
     return(out)
 }
 
