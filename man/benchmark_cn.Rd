@@ -15,6 +15,7 @@ benchmark_cn(
   min.width = 0,
   genome = "hg19",
   std.only = TRUE,
+  mask = system.file("extdata", "hg19.mask.rds", package = "gBenchmark"),
   verbose = FALSE
 )
 }
@@ -38,6 +39,8 @@ benchmark_cn(
 \item{genome}{(character) one of hg19 or h38, default hg19}
 
 \item{std.only}{(character) only consider standard chromosomes? e.g. 1-22, X, Y. default TRUE}
+
+\item{mask}{(character) path to coverage mask}
 
 \item{verbose}{(logical) default FALSE}
 }

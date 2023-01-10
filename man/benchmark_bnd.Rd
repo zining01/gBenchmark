@@ -7,10 +7,13 @@
 benchmark_bnd(
   x,
   y,
+  x.field = NA_character_,
+  y.field = NA_character_,
   ignore.strand = FALSE,
   max.dist = 1000,
   genome = "hg19",
   std.only = TRUE,
+  mask = system.file("extdata", "hg19.mask.rds", package = "gBenchmark"),
   verbose = FALSE
 )
 }
@@ -19,6 +22,10 @@ benchmark_bnd(
 
 \item{y}{character vector containing a file path, GRangesList, gGraph, GRanges, or Junction object (ground truth)}
 
+\item{x.field}{(character) default NA}
+
+\item{y.field}{(character) default NA}
+
 \item{ignore.strand}{(logical) perform unsigned comparison of breakends? default FALSE}
 
 \item{max.dist}{(numeric) maximum distance between breakends to be considered a match, default 1 Kbp}
@@ -26,6 +33,8 @@ benchmark_bnd(
 \item{genome}{(character) one of hg19, hg3. default hg19}
 
 \item{std.only}{(logical) standard chromosomes only? default TRUE}
+
+\item{mask}{(character) path to coverage mask}
 
 \item{verbose}{(logical) message stuff? default FALSE}
 }

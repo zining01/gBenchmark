@@ -33,6 +33,7 @@
 #' @param min.width (numeric) minimum width segment to retain (default 0, retains all segments)
 #' @param genome (character) one of hg19 or h38, default hg19
 #' @param std.only (character) only consider standard chromosomes? e.g. 1-22, X, Y. default TRUE
+#' @param mask (character) path to coverage mask
 #' @param verbose (logical) default FALSE
 #'
 #' @return data.table with benchmarking results
@@ -47,23 +48,11 @@ benchmark_cn = function(x, y,
                         min.width = 0,
                         genome = "hg19",
                         std.only = TRUE,
+                        mask = system.file("extdata", "hg19.mask.rds", package = "gBenchmark"),
                         verbose = FALSE)
 {
-    ## get chromosome sizes
-    if (genome != "hg19" & genome != "hg38")
-    {
-        stop("genome must be one of hg19 or hg38")
-    }
-    chrom.sizes.dt = data.table::fread(file = system.file("extdata", paste0(genome, ".chrom.sizes"),
-                                                          package = "gBenchmark"),
-                                       header = FALSE,
-                                       col.names = c("seqnames", "size"))
-    if (std.only)
-    {
-        chrom.sizes.dt = chrom.sizes.dt[grepl("^(chr)*[0-9XY]+$", seqnames),]
-    }
-    chrom.sizes = chrom.sizes.dt[, size]
-    names(chrom.sizes) = chrom.sizes.dt[, seqnames]
+    chrom.sizes = grab_chrom_sizes(genome = genome, std.only = std.only)
+    
 
     ## tile eligible regions
     tiles.gr = gUtils::gr.tile(gUtils::si2gr(si = chrom.sizes), width = tile.width)
@@ -71,6 +60,13 @@ benchmark_cn = function(x, y,
     ## grab input data
     gr1 = read_segs(x, field = x.field, allelic = allelic, cnloh = cnloh)
     gr2 = read_segs(y, field = y.field, allelic = allelic, cnloh = cnloh)
+
+    ## remove tiles with > 90% overlap with the mask
+    if (check_file(mask))
+    {
+        mask.gr = readRDS(mask)
+        tiles.gr = tiles.gr %Q% (tiles.gr %O% mask.gr)
+    }
 
     ## overlap with tiles
     if (cnloh | (!allelic))
@@ -160,19 +156,59 @@ benchmark_cn = function(x, y,
 #'
 #' @param x character vector containing a file path, GRangesList, gGraph, GRanges, or Junction object (sv calls)
 #' @param y character vector containing a file path, GRangesList, gGraph, GRanges, or Junction object (ground truth)
+#' @param x.field (character) default NA
+#' @param y.field (character) default NA
 #' @param ignore.strand (logical) perform unsigned comparison of breakends? default FALSE
 #' @param max.dist (numeric) maximum distance between breakends to be considered a match, default 1 Kbp
 #' @param genome (character) one of hg19, hg3. default hg19
 #' @param std.only (logical) standard chromosomes only? default TRUE
+#' @param mask (character) path to coverage mask
 #' @param verbose (logical) message stuff? default FALSE
 benchmark_bnd = function(x, y,
+                         x.field = NA_character_,
+                         y.field = NA_character_,
                          ignore.strand = FALSE,
                          max.dist = 1e3,
                          genome = "hg19",
                          std.only = TRUE,
+                         mask = system.file("extdata", "hg19.mask.rds", package = "gBenchmark"),
                          verbose = FALSE)
 {
-    return()
+    chrom.sizes = grab_chrom_sizes(genome = genome, std.only = std.only)
+    bnd1 = read_bnds(x, field = x.field, ignore.strand = ignore.strand)
+    bnd2 = read_bnds(y, field = y.field, ignore.strand = ignore.strand)
+
+    ## keep only things overlapping with desired chromosomes
+    bnd1 = bnd1 %Q% (bnd1 %^% si2gr(chrom.sizes))
+    bnd2 = bnd2 %Q% (bnd2 %^% si2gr(chrom.sizes))
+
+    ## exclude coverage mask
+    if (check_file(mask))
+    {
+        mask.gr = readRDS(mask)
+        bnd1 = bnd1 %Q% (!bnd1 %^% mask.gr)
+        bnd2 = bnd2 %Q% (!bnd2 %^% mask.gr)
+    }
+
+    ov.dt = data.table(row = numeric(), col = numeric(), dist = numeric())
+    if (length(bnd1) && length(bnd2))
+    {
+        ov = gUtils::gr.dist(gr1 = bnd1, gr2 = bnd2, ignore.strand = ignore.strand)
+        ov.dt = data.table(which(ov < max.dist, arr.ind = TRUE))
+        ov.dt[, dist := ov[cbind(row, col)]]
+    }
+
+    res = data.table(n.bnd.x = length(bnd1),
+                     n.bnd.y = length(bnd2),
+                     tp = length(unique(ov.dt[, row])))
+
+    res[, fp := n.bnd.x - tp]
+    res[, fn := n.bnd.y - length(unique(ov.dt[, col]))]
+    res[, precision := ifelse(tp > 0, tp / (tp + fp), 0)]
+    res[, recall := ifelse(tp > 0, tp / (tp + fn), 0)]
+    res[, f1 := ifelse(precision > 0 & recall > 0, 2 * precision * recall / (precision + recall), 0)]
+
+    return(res)
 }
 
 #' @name read_segs
@@ -481,4 +517,35 @@ check_file = function(fn = NULL) {
     }
 
     return(TRUE)
+}
+
+#' @name grab_chrom_sizes
+#' @title grab_chrom_sizes
+#'
+#' @description
+#' helper function to get seqlengths
+#'
+#' @param genome (character) hg19 or hg38?
+#' @param std.only (logical) only "standard" contigs
+#'
+#' @return named numeric vector
+grab_chrom_sizes = function(genome, std.only = TRUE)
+{
+    ## get chromosome sizes
+    if (genome != "hg19" & genome != "hg38")
+    {
+        stop("genome must be one of hg19 or hg38")
+    }
+    chrom.sizes.dt = data.table::fread(file = system.file("extdata", paste0(genome, ".chrom.sizes"),
+                                                          package = "gBenchmark"),
+                                       header = FALSE,
+                                       col.names = c("seqnames", "size"))
+    if (std.only)
+    {
+        chrom.sizes.dt = chrom.sizes.dt[grepl("^(chr)*[0-9XY]+$", seqnames),]
+    }
+    chrom.sizes = chrom.sizes.dt[, size]
+    names(chrom.sizes) = chrom.sizes.dt[, seqnames]
+
+    return(chrom.sizes)
 }
