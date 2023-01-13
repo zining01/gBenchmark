@@ -77,7 +77,7 @@ res = gBenchmark::benchmark_cn(x = system.file("extdata", "gr.rds", package = "g
 
 ## compare the copy number information stored in a gGraph (x) to a GRanges (y)
 res = gBenchmark::benchmark_cn(x = system.file("extdata", "gg.rds", package = "gBenchmark"),
-                               y = system.file("extdata", "gr.txt", package = "gBenchmark"),
+                               y = system.file("extdata", "dt.txt", package = "gBenchmark"),
                                x.field = "cn",
                                y.field = "cn",
                                tile.width = 1e3)
