@@ -24,3 +24,5 @@ Imports:
   rtracklayer,
   gUtils,
   gGnome
+Suggests:
+  testthat (>= 2.0)

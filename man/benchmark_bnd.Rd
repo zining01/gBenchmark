@@ -44,4 +44,26 @@ compare two sets of breakend calls
 \details{
 given two sets of breakend calls x and y, with y being the 'ground truth' or 'gold standard'
 calculate precision, recall, and f1 score of x
+
+x and y can be (signed) GRangesList, GRanges, gGraph (from which junctions/loose ends are extracted), or Junctions (or a file path containing any of these objects). in each of these cases, x.field and y.field do not have to be supplied.
+
+in addition, x and y can be a segmentation output (such as GRanges) with some field containing copy number (supplied as x.field or y.field). using the copy number change points, a set of signed breakends are inferred.
+
+if ignore.strand == TRUE, the orientation of breakends is ignored and two breakends in potentially opposite directions may be considered overlapping.
+}
+\examples{
+## compare a gGraph (x) with a set of junction calls provided as vcf (y)
+res = gBenchmark:::benchmark_bnd(x = system.file("extdata", "gg.rds", package = "gBenchmark"),
+                                y = system.file("extdata", "svaba.subset.vcf", package = "gBenchmark"))
+
+## compare a gGraph (x) with a set of junction calls (provided as grl) (y)
+res = gBenchmark:::benchmark_bnd(x = system.file("extdata", "gg.rds", package = "gBenchmark"),
+                                y = system.file("extdata", "grl.rds", package = "gBenchmark"))
+
+## compare a GRanges (x) with a set of junction calls (provided as grl) (y) and ignore the strand
+res = gBenchmark:::benchmark_bnd(x = system.file("extdata", "gr.rds", package = "gBenchmark"),
+                                y = system.file("extdata", "grl.rds", package = "gBenchmark"),
+                                ignore.strand = TRUE)
+
+
 }

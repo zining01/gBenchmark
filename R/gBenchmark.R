@@ -5,7 +5,119 @@
 #' @importFrom gGnome gG jJ
 #' @importFrom GenomicRanges GRanges mcols
 #' @importFrom IRanges IRanges
+#' @importFrom stats rpois rbinom
 
+#' @name simulate_coverage
+#' @title simulate_coverage
+#'
+#' @description
+#' simulate binned read counts given expected depth
+#'
+#' @details
+#' Given a genomic segments with estimated tumor copy number (CN) and genomic bin size, simulate read counts per genomic bin.
+#' This can be done for either a diploid genome (diploid = TRUE) or haploid genome (haploid = TRUE).
+#'
+#' Optionally, a multiplicative bias (representing replication timing, batch effect, etc.) can be supplied to make the coverage appear more realistic.
+#' This should be supplied as a GRanges as a numeric vector in field "background" (or some other field specified in bias.field)
+#' 
+#' The expected coverage and read size can be tuned by setting basecov and readsize, respectively.
+#'
+#' By default, read counts are simulated from a Poisson distribution, but if overdispersion (numeric) is supplied will simulate from a Negative Binomial distribution.
+#'
+#' @param gr (GRanges, gGraph, or file containing one of these things) segment copy number, with numeric cn supplied in field "cn"
+#' @param field (character) field containing copy number in gr, default cn
+#' @param bins (GRanges) genomic bins
+#' @param binsize (numeric) width of genomic bins (bp) for simulating read counts. ignored if bins if supplied. default 1e3.
+#' @param diploid (logical) simulate diploid genome? default TRUE
+#' @param bias (GRanges) mulitplicative bias for binned means
+#' @param bias.field (character) column in bias GRanges metadata containing multiplicative bias. default "background"
+#' @param basecov (numeric) expected coverage depth. default 60.
+#' @param readsize (numeric) expected read size (bp). default 150.
+#' @param purity (numeric) sample purity, between zero and one. default 0.95.
+#' @param poisson (numeric) simulate actual integer reads? if NA will just output relative copy number.
+#' @param overdispersion (numeric) if supplied, should be > 1 and will be applied to simulate from a negative binomial distribution. default NA.
+#' @param normalize (logical) unit normalize resulting reads by dividing by mean? default TRUE
+#'
+#' @return GRanges with coverage per genomic bin in field "cov"
+#'
+#' @export
+simulate_coverage = function(gr,
+                             field = "cn",
+                             bins = NULL,
+                             binsize = 1000,
+                             diploid = TRUE,
+                             bias = NULL,
+                             bias.field = "background",
+                             basecov = 60,
+                             readsize = 150,
+                             purity = 0.95,
+                             poisson = TRUE,
+                             overdispersion = NA,
+                             normalize = TRUE,
+                             genome = "hg19")
+{
+    gr = read_segs(gr, field = field, allelic = FALSE, cnloh = FALSE)
+    chrom.sizes = grab_chrom_sizes(genome)
+
+    ## generate tiled genome
+    if (is.null(bins) || !inherits(bins, "GRanges"))
+    {
+        bins = gUtils::gr.tile(gUtils::si2gr(chrom.sizes), width = binsize)
+    }
+
+    ## compute expected bin coverage
+    bincov = (basecov * (readsize + binsize - 1)) / readsize
+
+    ## get expected normal cn
+    ncn = 1
+    if (diploid) { ncn = 2 }
+
+    ## compute relative CN
+    GenomicRanges::mcols(bins)[, "cn"] = gUtils::gr.val(query = bins,
+                                                        target = gr,
+                                                        val = "score",
+                                                        mean = TRUE,
+                                                        na.rm = TRUE)$score
+
+    GenomicRanges::mcols(bins)[, "cn.rel"] = (purity * GenomicRanges::mcols(bins)[, "cn"] +
+                                              ncn * (1 - purity)) /
+        (purity * mean(GenomicRanges::mcols(bins)[, "cn"], na.rm = TRUE) +
+         ncn * (1 - purity))
+
+    ## add multiplcative bias, if supplied
+    GenomicRanges::mcols(bins)[, "background"] = 1
+    if (!is.null(bias) && inherits(bias, "GRanges"))
+    {
+        GenomicRanges::mcols(bias)[, "background"] = GenomicRanges::mcols(bias)[, bias.field]
+        GenomicRanges::mcols(bins)[, "background"] = gUtils::gr.val(query = bins,
+                                                                    target = bias,
+                                                                    val = "background",
+                                                                    mean = TRUE,
+                                                                    na.rm = TRUE)$background
+    }
+
+    ## simulate from Poisson distribution
+    GenomicRanges::mcols(bins)[, "cov"] = GenomicRanges::mcols(bins)[, "cn.rel"] * GenomicRanges::mcols(bins)[, "background"] * bincov
+    if (poisson)
+    {
+        if (is.na(overdispersion))
+        {
+            GenomicRanges::mcols(bins)[, "cov"] = stats::rpois(n = length(bins), lambda = GenomicRanges::mcols(bins)[, "cov"])
+        }
+        else
+        {
+            GenomicRanges::mcols(bins)[, "cov"] = stats::rbinom(n = length(bins), mu =  GenomicRanges::mcols(bins)[, "cov"], size = 1 / overdispersion)
+        }
+    }
+
+    ## normalize if desired
+    if (normalize)
+    {
+        GenomicRanges::mcols(bins)[, "cov"] = GenomicRanges::mcols(bins)[, "cov"]  / mean(GenomicRanges::mcols(bins)[, "cov"], na.rm = TRUE)
+    }
+    return(bins)
+}
+                             
 #' @name benchmark_cn
 #' @title benchmark_cn
 #'
@@ -39,7 +151,7 @@
 #' 
 #' ## compare the copy number information stored in a gGraph (x) to a GRanges (y)
 #' res = gBenchmark::benchmark_cn(x = system.file("extdata", "gg.rds", package = "gBenchmark"),
-#'                                y = system.file("extdata", "gr.txt", package = "gBenchmark"),
+#'                                y = system.file("extdata", "dt.txt", package = "gBenchmark"),
 #'                                x.field = "cn",
 #'                                y.field = "cn",
 #'                                tile.width = 1e3)
