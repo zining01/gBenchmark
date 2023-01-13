@@ -22,6 +22,9 @@
     <loc>/reference/check_file.html</loc>
   </url>
   <url>
+    <loc>/reference/grab_chrom_sizes.html</loc>
+  </url>
+  <url>
     <loc>/reference/index.html</loc>
   </url>
   <url>
@@ -32,5 +35,8 @@
   </url>
   <url>
     <loc>/reference/seg2bnd.html</loc>
+  </url>
+  <url>
+    <loc>/reference/simulate_coverage.html</loc>
   </url>
 </urlset>
