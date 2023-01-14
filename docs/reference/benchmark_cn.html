@@ -143,11 +143,12 @@
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co">## compare the copy number information stored in a gGraph (x) to a GRanges (y)</span></span></span>
 <span class="r-in"><span><span class="va">res</span> <span class="op">=</span> <span class="fu">gBenchmark</span><span class="fu">::</span><span class="fu">benchmark_cn</span><span class="op">(</span>x <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"gg.rds"</span>, package <span class="op">=</span> <span class="st">"gBenchmark"</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>                               y <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"gr.txt"</span>, package <span class="op">=</span> <span class="st">"gBenchmark"</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>                               y <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"dt.txt"</span>, package <span class="op">=</span> <span class="st">"gBenchmark"</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>                               x.field <span class="op">=</span> <span class="st">"cn"</span>,</span></span>
 <span class="r-in"><span>                               y.field <span class="op">=</span> <span class="st">"cn"</span>,</span></span>
 <span class="r-in"><span>                               tile.width <span class="op">=</span> <span class="fl">1e3</span><span class="op">)</span></span></span>
-<span class="r-err co"><span class="r-pr">#&gt;</span> <span class="error">Error in read_segs(y, field = y.field, allelic = allelic, cnloh = cnloh):</span> invalid file supplied: </span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>the standard deviation is zero</span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>the standard deviation is zero</span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>
