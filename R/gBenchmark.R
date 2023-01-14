@@ -204,7 +204,7 @@ benchmark_cn = function(x, y,
     if (check_file(mask))
     {
         mask.gr = readRDS(mask)
-        tiles.gr = tiles.gr %Q% (tiles.gr %O% mask.gr)
+        tiles.gr = tiles.gr %Q% ((tiles.gr %O% mask.gr) < 0.9)
     }
 
     ## overlap with tiles
