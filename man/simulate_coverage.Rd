@@ -65,3 +65,10 @@ The expected coverage and read size can be tuned by setting basecov and readsize
 
 By default, read counts are simulated from a Poisson distribution, but if overdispersion (numeric) is supplied will simulate from a Negative Binomial distribution.
 }
+\examples{
+## simulate coverage with no bias
+gr = gBenchmark::simulate_coverage(gr = system.file("extdata", "ovcar.gr.rds", package = "gBenchmark"))
+## simulate coverage with bias
+gr = gBenchmark::simulate_coverage(gr = system.file("extdata", "ovcar.gr.rds", package = "gBenchmark"), bias = system.file("extdata", "bias.gr.rds", package = "gBenchmark"))
+
+}
