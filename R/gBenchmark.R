@@ -38,6 +38,12 @@
 #' @param overdispersion (numeric) if supplied, should be > 1 and will be applied to simulate from a negative binomial distribution. default NA.
 #' @param normalize (logical) unit normalize resulting reads by dividing by mean? default TRUE
 #'
+#' @examples
+#' ## simulate coverage with no bias
+#' gr = gBenchmark::simulate_coverage(gr = system.file("extdata", "ovcar.gr.rds", package = "gBenchmark"))
+#' ## simulate coverage with bias
+#' gr = gBenchmark::simulate_coverage(gr = system.file("extdata", "ovcar.gr.rds", package = "gBenchmark"), bias = system.file("extdata", "bias.gr.rds", package = "gBenchmark"))
+#'
 #' @return GRanges with coverage per genomic bin in field "cov"
 #'
 #' @export
@@ -86,14 +92,14 @@ simulate_coverage = function(gr,
 
     ## add multiplcative bias, if supplied
     GenomicRanges::mcols(bins)[, "background"] = 1
-    if (!is.null(bias) && inherits(bias, "GRanges"))
+    if (!is.null(bias))
     {
-        GenomicRanges::mcols(bias)[, "background"] = GenomicRanges::mcols(bias)[, bias.field]
+        bias = read_segs(bias, field = bias.field)
         GenomicRanges::mcols(bins)[, "background"] = gUtils::gr.val(query = bins,
                                                                     target = bias,
-                                                                    val = "background",
+                                                                    val = "score",
                                                                     mean = TRUE,
-                                                                    na.rm = TRUE)$background
+                                                                    na.rm = TRUE)$score
     }
 
     ## simulate from Poisson distribution
